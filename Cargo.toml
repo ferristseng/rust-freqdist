@@ -1,6 +1,11 @@
 [package]
 name = "rust-freqdist"
 version = "0.0.1"
+description = "An implementation of a Frequency Distribution in Rust"
+documentation = "http://ferristseng.com/assets/freqdist/freqdist/index.html"
+repository = "https://github.com/ferristseng/rust-freqdist"
+readme-file = "README.md"
+license-file = "LICENSE"
 authors = ["Ferris Tseng <ferristseng@fastmail.fm>"]
 
 [lib]
@@ -8,4 +13,4 @@ name = "freqdist"
 path = "src/lib.rs"
 
 [dependencies.xxhash]
-git = "https://github.com/Jurily/rust-xxhash"
+version = "0.0.4"
