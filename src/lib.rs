@@ -1,4 +1,4 @@
-#![feature(default_type_params)]
+#![feature(default_type_params, associated_types)]
 
 #[cfg(test)] extern crate test;
 extern crate xxhash;
@@ -95,7 +95,7 @@ impl<K: Eq + Hash<S>, S, H: Hasher<S>> FrequencyDistribution<K, H> {
 
   /// Iterator over the non-zero frequency keys.
   #[inline]
-  pub fn iter_non_zero(&self) -> NonZeroKeysIter<K, Iter<K, uint>> {
+  pub fn iter_non_zero(&self) -> NonZeroKeysIter<K> {
     NonZeroKeysIter { iter: self.iter() }
   }
 
@@ -157,7 +157,7 @@ for FrequencyDistribution<K, H> {
   /// assert_eq!(*fdist.get("oranges").unwrap(), 4);
   /// assert_eq!(*fdist.get("bannana").unwrap(), 7);
   /// ```
-  fn from_iter<T: Iterator<(K, uint)>>(iter: T) -> FrequencyDistribution<K, H> {
+  fn from_iter<T: Iterator<Item = (K, uint)>>(iter: T) -> FrequencyDistribution<K, H> {
     let mut fdist = if iter.size_hint().1.is_some() {
       FrequencyDistribution::with_capacity_and_hasher(
         iter.size_hint().1.unwrap(),
@@ -176,7 +176,7 @@ for FrequencyDistribution<K, H> {
 impl<K: Eq + Hash<S>, S, H: Hasher<S>> Extend<(K, uint)> 
 for FrequencyDistribution<K, H> {
   /// Extends the hashmap by adding the keys or updating the frequencies of the keys.
-  fn extend<T: Iterator<(K, uint)>>(&mut self, mut iter: T) {
+  fn extend<T: Iterator<Item = (K, uint)>>(&mut self, mut iter: T) {
     for (k, freq) in iter {
       self.insert_or_incr_by(k, freq);
     }
@@ -227,12 +227,13 @@ for FrequencyDistribution<K, H> {
 
 
 /// Iterator over entries with non-zero quantities.
-pub struct NonZeroKeysIter<'a, K: 'a, I: Iterator<(&'a K, &'a uint)>> {
-  iter: I
+pub struct NonZeroKeysIter<'a, K: 'a> {
+  iter: Iter<'a, K, uint> 
 }
 
-impl<'a, K: 'a, I: Iterator<(&'a K, &'a uint)>> Iterator<&'a K> 
-for NonZeroKeysIter<'a, K, I> {
+impl<'a, K: 'a> Iterator for NonZeroKeysIter<'a, K> {
+  type Item = &'a K;
+
   #[inline]
   fn next(&mut self) -> Option<&'a K> {
     loop {

@@ -1,6 +1,6 @@
-![Build Status](https://travis-ci.org/ferristseng/rust-freqdist.svg)
-
 # FreqDist
+
+![Build Status](https://travis-ci.org/ferristseng/rust-freqdist.svg)
 
 Provides a Frequency Distribution data structure, which can keep track of the number of times an object appears in some context. 
 
