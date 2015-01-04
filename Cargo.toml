@@ -1,0 +1,11 @@
+[package]
+name = "rust-freqdist"
+version = "0.0.1"
+authors = ["Ferris Tseng <ferristseng@fastmail.fm>"]
+
+[lib]
+name = "freqdist"
+path = "src/lib.rs"
+
+[dependencies.xxhash]
+git = "https://github.com/Jurily/rust-xxhash"
