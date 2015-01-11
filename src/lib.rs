@@ -1,4 +1,4 @@
-#![feature(default_type_params, associated_types)]
+#![allow(unstable)]
 
 #[cfg(test)] extern crate test;
 extern crate xxhash;
@@ -8,22 +8,24 @@ use std::hash::{Hasher, Hash};
 use std::iter::{FromIterator, Iterator};
 use std::borrow::BorrowFrom;
 use std::collections::HashMap;
+use std::collections::hash_state::HashState;
 use std::collections::hash_map::{Iter, Keys};
 
-use xxhash::{XXHasher, XXState};
+use xxhash::XXState;
 
-/// A distribution of K's. V stores the distribution of 
-/// K's (most likely will be numeric). Implementors will most 
-/// likely define what K is. 
 /// Distribution doesn't require a cryptographically secure hash, and by 
 /// default will not use one.
-pub trait Distribution<K: Eq + Hash<S>, V, S = XXState, H: Hasher<S> = XXHasher> 
-for Sized? {
-  fn len(&self) -> uint;
-  fn get<Sized? Q>(&self, k: &Q) -> Option<&V> where Q: Hash<S> + Eq + BorrowFrom<K>;
+pub trait Distribution<S = XXState> {
+  type Key;
+  type Quantity;
+
+  fn len(&self) -> usize;
+  fn get<Q: ?Sized>(&self, k: &Q) -> Option<&Self::Quantity> 
+    where Q: Hash<S> + Eq + BorrowFrom<Self::Key>;
   fn clear(&mut self);
-  fn insert(&mut self, k: K);
-  fn remove<Sized? Q>(&mut self, k: &Q) where Q: Hash<S> + Eq + BorrowFrom<K>;
+  fn insert(&mut self, k: Self::Key);
+  fn remove<Q: ?Sized>(&mut self, k: &Q) 
+    where Q: Hash<S> + Eq + BorrowFrom<Self::Key>;
 }
 
 /// Implementation of a Frequency Distribution in Rust. Keeps track of how many 
@@ -45,76 +47,95 @@ for Sized? {
 ///
 /// assert_eq!(*fdist.get("hello").unwrap(), 2);
 /// ```
-pub struct FrequencyDistribution<K, H = XXHasher> {
-  hashmap: HashMap<K, uint, H>,
-  sum_counts: uint
+pub struct FrequencyDistribution<K, S = XXState> {
+  hashmap: HashMap<K, usize, S>,
+  sum_counts: usize
 }
 
-impl<K: Eq + Hash<XXState>> FrequencyDistribution<K, XXHasher> {
+impl<K> FrequencyDistribution<K> 
+  where K: Eq + Hash<XXState> 
+{
   /// Creates a new FrequencyDistribution where the size of the
   /// HashMap is unknown.
-  pub fn new() -> FrequencyDistribution<K> {
-    FrequencyDistribution::with_hasher(XXHasher::new())
+  #[inline]
+  pub fn new() -> FrequencyDistribution<K, XXState> {
+    FrequencyDistribution::with_hash_state(XXState::new())
   }
   
   /// Creates a new FrequencyDistribution where the size of the HashMap
   /// is known, or a estimate can be made.
-  pub fn with_capacity(size: uint) -> FrequencyDistribution<K> {
-    FrequencyDistribution::with_capacity_and_hasher(size, XXHasher::new())
+  #[inline]
+  pub fn with_capacity(size: usize) -> FrequencyDistribution<K, XXState> {
+    FrequencyDistribution::with_capacity_and_hash_state(size, XXState::new())
   }
 }
 
-impl<K: Eq + Hash<S>, S, H: Hasher<S>> FrequencyDistribution<K, H> {
-  /// Creates a new FrequencyDistrbution with a hasher and size, where 
+impl<K, S, H> FrequencyDistribution<K, S> 
+  where K: Eq + Hash<H>, 
+        S: HashState<Hasher=H>, 
+        H: Hasher<Output=u64> 
+{
+  /// Creates a new FrequencyDistrbution with a hash state and size, where 
   /// the size is known or can be estimated.
-  pub fn with_capacity_and_hasher(
-    size: uint, 
-    hasher: H
-  ) -> FrequencyDistribution<K, H> {
+  #[inline]
+  pub fn with_capacity_and_hash_state(
+    size: usize, 
+    state: S
+  ) -> FrequencyDistribution<K, S> {
     FrequencyDistribution {
-      hashmap: HashMap::with_capacity_and_hasher(size, hasher),
+      hashmap: HashMap::with_capacity_and_hash_state(size, state),
       sum_counts: 0    
     }
   }
 
-  /// Creates a new FrequencyDistribution with a hasher and default size.
-  pub fn with_hasher(hasher: H) -> FrequencyDistribution<K, H> {
+  /// Creates a new FrequencyDistribution with a hash state and default size.
+  #[inline]
+  pub fn with_hash_state(state: S) -> FrequencyDistribution<K, S> {
     FrequencyDistribution {
-      hashmap: HashMap::with_hasher(hasher),
+      hashmap: HashMap::with_hash_state(state),
       sum_counts: 0
     }
   }
 }
 
-impl<K: Eq + Hash<S>, S, H: Hasher<S>> FrequencyDistribution<K, H> {
+impl<K, S, H> FrequencyDistribution<K, S> 
+  where K: Eq + Hash<H>,
+        S: HashState<Hasher=H>,
+        H: Hasher<Output=u64> 
+{
   /// Iterator over the key, frequency pairs.
   #[inline]
-  pub fn iter(&self) -> Iter<K, uint> {
+  #[stable]
+  pub fn iter(&self) -> Iter<K, usize> {
     self.hashmap.iter()
   }
 
   /// Iterator over the non-zero frequency keys.
   #[inline]
+  #[stable]
   pub fn iter_non_zero(&self) -> NonZeroKeysIter<K> {
     NonZeroKeysIter { iter: self.iter() }
   }
 
   /// Iterator over just the keys.
   #[inline]
-  pub fn keys(&self) -> Keys<K, uint> {
+  #[stable]
+  pub fn keys(&self) -> Keys<K, usize> { #![inline]
     self.hashmap.keys()
   }
 
   /// Returns the total number of values tallied.
-  #[inline(always)]
-  pub fn sum_counts(&self) -> uint {
+  #[inline]
+  #[stable]
+  pub fn sum_counts(&self) -> usize { #![inline(always)]
     self.sum_counts
   }
 
-  /// Inserts a value into the hashmap if it does not exist with a new quantity
+  /// Inserts a value sizeo the hashmap if it does not exist with a new quantity
   /// specified by the increment. If the value already exists, increments by 
   /// the specified amount.
-  fn insert_or_incr_by(&mut self, k: K, incr: uint) {
+  #[inline]
+  fn insert_or_incr_by(&mut self, k: K, incr: usize) {
     if !self.hashmap.contains_key(&k) {
       self.hashmap.insert(k, incr);
     } else {
@@ -125,23 +146,31 @@ impl<K: Eq + Hash<S>, S, H: Hasher<S>> FrequencyDistribution<K, H> {
   }
 }
 
-impl<K: Eq + Hash<XXState>> Default for FrequencyDistribution<K> {
-  /// Creates a default FrequencyDistribution with an XXHasher.
+impl<K> Default for FrequencyDistribution<K> 
+  where K: Eq + Hash<XXState>
+{
+  /// Creates a default FrequencyDistribution with an XXState.
+  #[inline]
+  #[stable]
   fn default() -> FrequencyDistribution<K> {
     FrequencyDistribution::new()
   }
 }
 
-impl<K: Eq + Hash<S>, S, H: Hasher<S> + Default> FromIterator<(K, uint)> 
-for FrequencyDistribution<K, H> {
+impl<K, S, H> FromIterator<(K, usize)> for FrequencyDistribution<K, S> 
+  where K: Eq + Hash<H>, 
+        S: HashState<Hasher = H> + Default, 
+        H: Hasher<Output = u64> 
+{ 
   /// Iterates through an iterator, and creates a new FrequencyDistribution from 
   /// it. The iterator should be an iterator over keys and frequencies. If a 
-  /// upper bounded `size_hint` is available, then it is used, otherwise the lower 
-  /// bounded `size_hint` is used.
+  /// upper bounded `size_hsize` is available, then it is used, otherwise the lower 
+  /// bounded `size_hsize` is used.
   ///
   /// # Example
   ///
   /// ```rust
+  /// #![allow(unstable)]
   /// use std::iter::FromIterator;
   /// use freqdist::{Distribution, FrequencyDistribution};
   ///
@@ -151,19 +180,22 @@ for FrequencyDistribution<K, H> {
   ///   ("bannana", 7)
   /// ];
   ///
-  /// let fdist: FrequencyDistribution<&str> = FromIterator::from_iter(existing.into_iter());
+  /// let fdist: FrequencyDistribution<&str> = 
+  ///   FromIterator::from_iter(existing.into_iter());
   ///
   /// assert_eq!(*fdist.get("apples").unwrap(), 3);
   /// assert_eq!(*fdist.get("oranges").unwrap(), 4);
   /// assert_eq!(*fdist.get("bannana").unwrap(), 7);
   /// ```
-  fn from_iter<T: Iterator<Item = (K, uint)>>(iter: T) -> FrequencyDistribution<K, H> {
+  fn from_iter<T: Iterator<Item = (K, usize)>>(
+    iter: T
+  ) -> FrequencyDistribution<K, S> {
     let mut fdist = if iter.size_hint().1.is_some() {
-      FrequencyDistribution::with_capacity_and_hasher(
+      FrequencyDistribution::with_capacity_and_hash_state(
         iter.size_hint().1.unwrap(),
         Default::default())
     } else {
-      FrequencyDistribution::with_capacity_and_hasher(
+      FrequencyDistribution::with_capacity_and_hash_state(
         iter.size_hint().0, 
         Default::default())
     };
@@ -173,28 +205,40 @@ for FrequencyDistribution<K, H> {
   }
 }
 
-impl<K: Eq + Hash<S>, S, H: Hasher<S>> Extend<(K, uint)> 
-for FrequencyDistribution<K, H> {
+impl<K, S, H> Extend<(K, usize)> for FrequencyDistribution<K, S> 
+  where K: Eq + Hash<H>, 
+        S: HashState<Hasher=H>,
+        H: Hasher<Output=u64> 
+{
   /// Extends the hashmap by adding the keys or updating the frequencies of the keys.
-  fn extend<T: Iterator<Item = (K, uint)>>(&mut self, mut iter: T) {
+  #[inline]
+  fn extend<T: Iterator<Item = (K, usize)>>(&mut self, mut iter: T) {
     for (k, freq) in iter {
       self.insert_or_incr_by(k, freq);
     }
   }
 }
 
-impl<K: Eq + Hash<S>, S, H: Hasher<S>> Distribution<K, uint, S, H> 
-for FrequencyDistribution<K, H> {
+impl<K, S, H> Distribution<H> for FrequencyDistribution<K, S> 
+  where K: Eq + Hash<H>, 
+        S: HashState<Hasher=H>, 
+        H: Hasher<Output=u64> 
+{
+  type Key = K;
+  type Quantity = usize;
+
   /// Returns the number of entries in the distribution
   #[inline]
-  fn len(&self) -> uint {
+  #[stable]
+  fn len(&self) -> usize {
     self.hashmap.len()
   }
 
   /// Gets the frequency in which the key occurs.
   #[inline]
-  fn get<Sized? Q>(&self, k: &Q) -> Option<&uint> 
-    where Q: Hash<S> + Eq + BorrowFrom<K>
+  #[stable]
+  fn get<Q: ?Sized>(&self, k: &Q) -> Option<&usize> 
+    where Q: Hash<H> + Eq + BorrowFrom<K> 
   {
     self.hashmap.get(k)
   }
@@ -202,21 +246,25 @@ for FrequencyDistribution<K, H> {
   /// Clears the counts of all keys and clears all keys from 
   /// the distribution.
   #[inline]
+  #[stable]
   fn clear(&mut self) {
     self.hashmap.clear()
   }
 
   /// Updates the frequency of the value found with the key if it 
-  /// already exists. Otherwise, inserts the key into the hashmap, 
+  /// already exists. Otherwise, inserts the key sizeo the hashmap, 
   /// and sets its frequency to 1.
   #[inline]
+  #[stable]
   fn insert(&mut self, k: K) {
     self.insert_or_incr_by(k, 1);
   }
 
   /// Removes a Key and its associated value from the Distrbution.
   #[inline]
-  fn remove<Sized? Q>(&mut self, k: &Q) where Q: Hash<S> + Eq + BorrowFrom<K>
+  #[stable]
+  fn remove<Q: ?Sized>(&mut self, k: &Q) 
+    where Q: Hash<H> + Eq + BorrowFrom<K>
   {
     match self.hashmap.remove(k) {
       Some(count) => self.sum_counts -= count,
@@ -227,8 +275,9 @@ for FrequencyDistribution<K, H> {
 
 
 /// Iterator over entries with non-zero quantities.
+#[stable]
 pub struct NonZeroKeysIter<'a, K: 'a> {
-  iter: Iter<'a, K, uint> 
+  iter: Iter<'a, K, usize> 
 }
 
 impl<'a, K: 'a> Iterator for NonZeroKeysIter<'a, K> {
@@ -246,75 +295,69 @@ impl<'a, K: 'a> Iterator for NonZeroKeysIter<'a, K> {
   }
   
   #[inline]
-  fn size_hint(&self) -> (uint, Option<uint>) {
+  fn size_hint(&self) -> (usize, Option<usize>) {
     self.iter.size_hint()
   }
 }
 
-#[cfg(test)]
-mod test_frequency_distribution {
-  use std::iter::FromIterator;
-  use super::{Distribution, FrequencyDistribution};
+#[test]
+fn smoke_test_frequency_distribution_insert() {
+  let words = vec!("alpha", "beta");
+  let mut dist: FrequencyDistribution<&str> = FrequencyDistribution::new();
 
-  #[test]
-  fn smoke_test_frequency_distribution_insert() {
-    let words = vec!("alpha", "beta");
-    let mut dist: FrequencyDistribution<&str> = FrequencyDistribution::new();
+  dist.insert(words[0]);
+  
+  assert_eq!(*dist.get(&words[0]).unwrap(), 1);
 
-    dist.insert(words[0]);
-    
-    assert_eq!(*dist.get(&words[0]).unwrap(), 1);
+  dist.insert(words[1]);
 
-    dist.insert(words[1]);
+  assert_eq!(*dist.get(&words[1]).unwrap(), 1);
 
-    assert_eq!(*dist.get(&words[1]).unwrap(), 1);
+  for _ in range(0, 7us) { dist.insert(words[0]); }
 
-    for _ in range(0, 7u) { dist.insert(words[0]); }
+  assert_eq!(*dist.get(&words[0]).unwrap(), 8);
+}
 
-    assert_eq!(*dist.get(&words[0]).unwrap(), 8);
-  }
+#[test]
+fn smoke_test_frequency_distribution_iter() {
+  let words = vec!(("a", 50us), ("b", 100us), ("c", 75us), ("d", 0us));
+  let dist: FrequencyDistribution<&str> = FromIterator::from_iter(words.into_iter());
 
-  #[test]
-  fn smoke_test_frequency_distribution_iter() {
-    let words = vec!(("a", 50u), ("b", 100u), ("c", 75u), ("d", 0u));
-    let dist: FrequencyDistribution<&str> = FromIterator::from_iter(words.into_iter());
+  assert_eq!(*dist.get(&"a").unwrap(), 50);
+  assert_eq!(*dist.get(&"b").unwrap(), 100);
+  assert_eq!(*dist.get(&"c").unwrap(), 75);
 
-    assert_eq!(*dist.get(&"a").unwrap(), 50);
-    assert_eq!(*dist.get(&"b").unwrap(), 100);
-    assert_eq!(*dist.get(&"c").unwrap(), 75);
+  let mut iter = dist.iter_non_zero();
 
-    let mut iter = dist.iter_non_zero();
+  assert!(iter.next().is_some());
+  assert!(iter.next().is_some());
+  assert!(iter.next().is_some());
+  assert!(iter.next().is_none());
 
-    assert!(iter.next().is_some());
-    assert!(iter.next().is_some());
-    assert!(iter.next().is_some());
-    assert!(iter.next().is_none());
+  assert_eq!(dist.sum_counts(), 225);
+}
 
-    assert_eq!(dist.sum_counts(), 225);
-  }
+#[test]
+fn smoke_test_frequency_distribution_remove() {
+  let words = vec!(("a", 50us), ("b", 100us), ("c", 25us));
+  let mut dist: FrequencyDistribution<&str> = FromIterator::from_iter(words.into_iter());
 
-  #[test]
-  fn smoke_test_frequency_distribution_remove() {
-    let words = vec!(("a", 50u), ("b", 100u), ("c", 25u));
-    let mut dist: FrequencyDistribution<&str> = FromIterator::from_iter(words.into_iter());
+  assert!(dist.get(&"a").is_some());
 
-    assert!(dist.get(&"a").is_some());
+  dist.remove(&"a");
 
-    dist.remove(&"a");
+  assert!(dist.get(&"a").is_none());
+  assert_eq!(dist.sum_counts(), 125);
+}
 
-    assert!(dist.get(&"a").is_none());
-    assert_eq!(dist.sum_counts(), 125);
-  }
+#[test]
+fn smoke_test_frequency_sum_counts() {
+  let words = vec!(("a", 7us), ("b", 5us), ("c", 8us), ("d", 3us));
+  let mut dist: FrequencyDistribution<&str> = FromIterator::from_iter(words.into_iter());
 
-  #[test]
-  fn smoke_test_frequency_sum_counts() {
-    let words = vec!(("a", 7u), ("b", 5u), ("c", 8u), ("d", 3u));
-    let mut dist: FrequencyDistribution<&str> = FromIterator::from_iter(words.into_iter());
+  assert_eq!(dist.sum_counts(), 23);
 
-    assert_eq!(dist.sum_counts(), 23);
+  dist.insert("e");
 
-    dist.insert("e");
-
-    assert_eq!(dist.sum_counts(), 24);
-  }
+  assert_eq!(dist.sum_counts(), 24);
 }
