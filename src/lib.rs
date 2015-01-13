@@ -8,7 +8,7 @@ use std::hash::{Hasher, Hash};
 use std::iter::{FromIterator, Iterator};
 use std::borrow::BorrowFrom;
 use std::collections::HashMap;
-use std::collections::hash_map::Iter;
+use std::collections::hash_map::{Keys, Iter};
 use std::collections::hash_state::{HashState, DefaultState};
 
 use xxhash::XXHasher;
@@ -105,6 +105,13 @@ impl<K, S, H> FrequencyDistribution<K, S>
         S: HashState<Hasher=H>,
         H: Hasher<Output=u64> 
 {
+  /// Iterator over the keys.
+  #[inline]
+  #[stable]
+  pub fn keys(&self) -> Keys<K, usize> {
+    self.hashmap.keys()
+  }
+
   /// Iterator over the key, frequency pairs.
   #[inline]
   #[stable]
