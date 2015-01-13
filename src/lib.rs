@@ -8,24 +8,24 @@ use std::hash::{Hasher, Hash};
 use std::iter::{FromIterator, Iterator};
 use std::borrow::BorrowFrom;
 use std::collections::HashMap;
-use std::collections::hash_state::HashState;
-use std::collections::hash_map::{Iter, Keys};
+use std::collections::hash_map::Iter;
+use std::collections::hash_state::{HashState, DefaultState};
 
-use xxhash::XXState;
+use xxhash::XXHasher;
 
 /// Distribution doesn't require a cryptographically secure hash, and by 
 /// default will not use one.
-pub trait Distribution<S = XXState> {
+pub trait Distribution<H = XXHasher> {
   type Key;
   type Quantity;
 
   fn len(&self) -> usize;
   fn get<Q: ?Sized>(&self, k: &Q) -> Option<&Self::Quantity> 
-    where Q: Hash<S> + Eq + BorrowFrom<Self::Key>;
+    where Q: Hash<H> + Eq + BorrowFrom<Self::Key>;
   fn clear(&mut self);
   fn insert(&mut self, k: Self::Key);
   fn remove<Q: ?Sized>(&mut self, k: &Q) 
-    where Q: Hash<S> + Eq + BorrowFrom<Self::Key>;
+    where Q: Hash<H> + Eq + BorrowFrom<Self::Key>;
 }
 
 /// Implementation of a Frequency Distribution in Rust. Keeps track of how many 
@@ -47,26 +47,28 @@ pub trait Distribution<S = XXState> {
 ///
 /// assert_eq!(*fdist.get("hello").unwrap(), 2);
 /// ```
-pub struct FrequencyDistribution<K, S = XXState> {
+pub struct FrequencyDistribution<K, S = DefaultState<XXHasher>> {
   hashmap: HashMap<K, usize, S>,
   sum_counts: usize
 }
 
 impl<K> FrequencyDistribution<K> 
-  where K: Eq + Hash<XXState> 
+  where K: Eq + Hash<XXHasher> 
 {
   /// Creates a new FrequencyDistribution where the size of the
   /// HashMap is unknown.
   #[inline]
-  pub fn new() -> FrequencyDistribution<K, XXState> {
-    FrequencyDistribution::with_hash_state(XXState::new())
+  pub fn new() -> FrequencyDistribution<K> {
+    FrequencyDistribution::with_hash_state(Default::default())
   }
   
   /// Creates a new FrequencyDistribution where the size of the HashMap
   /// is known, or a estimate can be made.
   #[inline]
-  pub fn with_capacity(size: usize) -> FrequencyDistribution<K, XXState> {
-    FrequencyDistribution::with_capacity_and_hash_state(size, XXState::new())
+  pub fn with_capacity(
+    size: usize
+  ) -> FrequencyDistribution<K> {
+    FrequencyDistribution::with_capacity_and_hash_state(size, Default::default())
   }
 }
 
@@ -80,7 +82,7 @@ impl<K, S, H> FrequencyDistribution<K, S>
   #[inline]
   pub fn with_capacity_and_hash_state(
     size: usize, 
-    state: S
+    state: S 
   ) -> FrequencyDistribution<K, S> {
     FrequencyDistribution {
       hashmap: HashMap::with_capacity_and_hash_state(size, state),
@@ -120,14 +122,7 @@ impl<K, S, H> FrequencyDistribution<K, S>
   /// Iterator over just the keys.
   #[inline]
   #[stable]
-  pub fn keys(&self) -> Keys<K, usize> { #![inline]
-    self.hashmap.keys()
-  }
-
-  /// Returns the total number of values tallied.
-  #[inline]
-  #[stable]
-  pub fn sum_counts(&self) -> usize { #![inline(always)]
+  pub fn sum_counts(&self) -> usize {
     self.sum_counts
   }
 
@@ -147,9 +142,9 @@ impl<K, S, H> FrequencyDistribution<K, S>
 }
 
 impl<K> Default for FrequencyDistribution<K> 
-  where K: Eq + Hash<XXState>
+  where K: Eq + Hash<XXHasher>
 {
-  /// Creates a default FrequencyDistribution with an XXState.
+  /// Creates a default FrequencyDistribution with an XXHasher.
   #[inline]
   #[stable]
   fn default() -> FrequencyDistribution<K> {

@@ -1,8 +1,7 @@
 [package]
 name = "rust-freqdist"
 description = "An implementation of a Frequency Distribution in Rust"
-version = "0.0.2"
-documentation = "http://ferristseng.com/assets/freqdist/freqdist/index.html"
+version = "0.0.3"
 license = "MIT"
 authors = ["Ferris Tseng <ferristseng@fastmail.fm>"]
 repository = "https://github.com/ferristseng/rust-freqdist"
@@ -12,4 +11,4 @@ name = "freqdist"
 path = "src/lib.rs"
 
 [dependencies.xxhash]
-version = "0.0.4"
+version = "0.0.8"
