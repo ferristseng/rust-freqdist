@@ -1,4 +1,5 @@
-#![allow(unstable)]
+#![feature(core)]
+#![feature(std_misc)]
 
 #[cfg(test)] extern crate test;
 extern crate xxhash;
@@ -214,7 +215,7 @@ impl<K, S, H> Extend<(K, usize)> for FrequencyDistribution<K, S>
 {
   /// Extends the hashmap by adding the keys or updating the frequencies of the keys.
   #[inline]
-  fn extend<T: Iterator<Item = (K, usize)>>(&mut self, mut iter: T) {
+  fn extend<T: Iterator<Item = (K, usize)>>(&mut self, iter: T) {
     for (k, freq) in iter {
       self.insert_or_incr_by(k, freq);
     }
