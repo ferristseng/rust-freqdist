@@ -1,15 +1,15 @@
-#![feature(core)]
-#![feature(std_misc)]
+#![feature(std_misc, test)]
 
 #[cfg(test)] extern crate test;
 extern crate xxhash;
 
+use std::ops::Index;
 use std::default::Default;
 use std::hash::{Hasher, Hash};
-use std::iter::{FromIterator, Iterator};
-use std::borrow::BorrowFrom;
+use std::iter::{FromIterator, IntoIterator};
+use std::borrow::Borrow;
 use std::collections::HashMap;
-use std::collections::hash_map::{Keys, Iter};
+use std::collections::hash_map::{Keys, IntoIter, Iter};
 use std::collections::hash_state::{HashState, DefaultState};
 
 use xxhash::XXHasher;
@@ -21,12 +21,12 @@ pub trait Distribution<H = XXHasher> {
   type Quantity;
 
   fn len(&self) -> usize;
-  fn get<Q: ?Sized>(&self, k: &Q) -> Option<&Self::Quantity> 
-    where Q: Hash<H> + Eq + BorrowFrom<Self::Key>;
+  fn get<Q: ?Sized>(&self, k: &Q) -> Self::Quantity
+    where Q: Hash + Eq + Borrow<Self::Key>; 
   fn clear(&mut self);
   fn insert(&mut self, k: Self::Key);
   fn remove<Q: ?Sized>(&mut self, k: &Q) 
-    where Q: Hash<H> + Eq + BorrowFrom<Self::Key>;
+    where Q: Hash + Eq + Borrow<Self::Key>;
 }
 
 /// Implementation of a Frequency Distribution in Rust. Keeps track of how many 
@@ -44,17 +44,20 @@ pub trait Distribution<H = XXHasher> {
 ///
 /// fdist.insert("hello");
 /// fdist.insert("hello");
-/// fdist.insert("goodbyte");
+/// fdist.insert("goodbye");
 ///
-/// assert_eq!(*fdist.get("hello").unwrap(), 2);
+/// assert_eq!(fdist.get(&"hello"), 2);
 /// ```
 pub struct FrequencyDistribution<K, S = DefaultState<XXHasher>> {
   hashmap: HashMap<K, usize, S>,
   sum_counts: usize
 }
 
+/// Used as a return value if a key is not found. 
+static ZERO: &'static usize = &0;
+
 impl<K> FrequencyDistribution<K> 
-  where K: Eq + Hash<XXHasher> 
+  where K: Eq + Hash 
 {
   /// Creates a new FrequencyDistribution where the size of the
   /// HashMap is unknown.
@@ -74,9 +77,9 @@ impl<K> FrequencyDistribution<K>
 }
 
 impl<K, S, H> FrequencyDistribution<K, S> 
-  where K: Eq + Hash<H>, 
+  where K: Eq + Hash, 
         S: HashState<Hasher=H>, 
-        H: Hasher<Output=u64> 
+        H: Hasher 
 {
   /// Creates a new FrequencyDistrbution with a hash state and size, where 
   /// the size is known or can be estimated.
@@ -102,9 +105,9 @@ impl<K, S, H> FrequencyDistribution<K, S>
 }
 
 impl<K, S, H> FrequencyDistribution<K, S> 
-  where K: Eq + Hash<H>,
+  where K: Eq + Hash,
         S: HashState<Hasher=H>,
-        H: Hasher<Output=u64> 
+        H: Hasher 
 {
   /// Iterator over the keys.
   #[inline]
@@ -121,13 +124,36 @@ impl<K, S, H> FrequencyDistribution<K, S>
   }
 
   /// Iterator over the non-zero frequency keys.
+  /// 
+  /// # Example
+  ///
+  /// ```rust
+  /// use std::iter::{FromIterator, IntoIterator};
+  /// use freqdist::FrequencyDistribution;
+  ///
+  /// let existing = vec![
+  ///   ("shoes", 1),
+  ///   ("scarf", 0),
+  ///   ("shirt", 13),
+  ///   ("pants", 4)
+  /// ];
+  ///
+  /// let fdist: FrequencyDistribution<&str> = 
+  ///   FromIterator::from_iter(existing.into_iter());
+  /// let mut iter = fdist.iter_non_zero();
+  ///
+  /// assert_eq!(*iter.next().unwrap(), "pants");
+  /// assert_eq!(*iter.next().unwrap(), "shirt");
+  /// assert_eq!(*iter.next().unwrap(), "shoes");
+  /// assert!(iter.next().is_none());
+  /// ```
   #[inline]
-  #[stable]
+  #[unstable]
   pub fn iter_non_zero(&self) -> NonZeroKeysIter<K> {
     NonZeroKeysIter { iter: self.iter() }
   }
 
-  /// Iterator over just the keys.
+  /// Sum of the total number of items counted thus far. 
   #[inline]
   #[stable]
   pub fn sum_counts(&self) -> usize {
@@ -150,7 +176,7 @@ impl<K, S, H> FrequencyDistribution<K, S>
 }
 
 impl<K> Default for FrequencyDistribution<K> 
-  where K: Eq + Hash<XXHasher>
+  where K: Eq + Hash
 {
   /// Creates a default FrequencyDistribution with an XXHasher.
   #[inline]
@@ -161,9 +187,9 @@ impl<K> Default for FrequencyDistribution<K>
 }
 
 impl<K, S, H> FromIterator<(K, usize)> for FrequencyDistribution<K, S> 
-  where K: Eq + Hash<H>, 
+  where K: Eq + Hash, 
         S: HashState<Hasher = H> + Default, 
-        H: Hasher<Output = u64> 
+        H: Hasher 
 { 
   /// Iterates through an iterator, and creates a new FrequencyDistribution from 
   /// it. The iterator should be an iterator over keys and frequencies. If a 
@@ -173,7 +199,6 @@ impl<K, S, H> FromIterator<(K, usize)> for FrequencyDistribution<K, S>
   /// # Example
   ///
   /// ```rust
-  /// #![allow(unstable)]
   /// use std::iter::FromIterator;
   /// use freqdist::{Distribution, FrequencyDistribution};
   ///
@@ -186,46 +211,48 @@ impl<K, S, H> FromIterator<(K, usize)> for FrequencyDistribution<K, S>
   /// let fdist: FrequencyDistribution<&str> = 
   ///   FromIterator::from_iter(existing.into_iter());
   ///
-  /// assert_eq!(*fdist.get("apples").unwrap(), 3);
-  /// assert_eq!(*fdist.get("oranges").unwrap(), 4);
-  /// assert_eq!(*fdist.get("bannana").unwrap(), 7);
+  /// assert_eq!(fdist.get(&"apples"), 3);
+  /// assert_eq!(fdist.get(&"oranges"), 4);
+  /// assert_eq!(fdist.get(&"bannana"), 7);
   /// ```
-  fn from_iter<T: Iterator<Item = (K, usize)>>(
-    iter: T
-  ) -> FrequencyDistribution<K, S> {
-    let mut fdist = if iter.size_hint().1.is_some() {
+  fn from_iter<T>(iter: T) -> FrequencyDistribution<K, S> 
+    where T: IntoIterator<Item = (K, usize)> 
+  {
+    let iterator = iter.into_iter();
+    let mut fdist = if iterator.size_hint().1.is_some() {
       FrequencyDistribution::with_capacity_and_hash_state(
-        iter.size_hint().1.unwrap(),
+        iterator.size_hint().1.unwrap(),
         Default::default())
     } else {
       FrequencyDistribution::with_capacity_and_hash_state(
-        iter.size_hint().0, 
+        iterator.size_hint().0, 
         Default::default())
     };
 
-    fdist.extend(iter);
+    for (k, freq) in iterator { fdist.insert_or_incr_by(k, freq); }
+
     fdist
   }
 }
 
 impl<K, S, H> Extend<(K, usize)> for FrequencyDistribution<K, S> 
-  where K: Eq + Hash<H>, 
+  where K: Eq + Hash, 
         S: HashState<Hasher=H>,
-        H: Hasher<Output=u64> 
+        H: Hasher 
 {
   /// Extends the hashmap by adding the keys or updating the frequencies of the keys.
   #[inline]
-  fn extend<T: Iterator<Item = (K, usize)>>(&mut self, iter: T) {
-    for (k, freq) in iter {
-      self.insert_or_incr_by(k, freq);
-    }
+  fn extend<T>(&mut self, iter: T) 
+    where T: IntoIterator<Item = (K, usize)>
+  {
+    for (k, freq) in iter.into_iter() { self.insert_or_incr_by(k, freq); }
   }
 }
 
 impl<K, S, H> Distribution<H> for FrequencyDistribution<K, S> 
-  where K: Eq + Hash<H>, 
+  where K: Eq + Hash, 
         S: HashState<Hasher=H>, 
-        H: Hasher<Output=u64> 
+        H: Hasher 
 {
   type Key = K;
   type Quantity = usize;
@@ -240,10 +267,10 @@ impl<K, S, H> Distribution<H> for FrequencyDistribution<K, S>
   /// Gets the frequency in which the key occurs.
   #[inline]
   #[stable]
-  fn get<Q: ?Sized>(&self, k: &Q) -> Option<&usize> 
-    where Q: Hash<H> + Eq + BorrowFrom<K> 
+  fn get<Q: ?Sized>(&self, k: &Q) -> usize 
+    where Q: Hash + Eq + Borrow<K>
   {
-    self.hashmap.get(k)
+    self[k.borrow()]
   }
 
   /// Clears the counts of all keys and clears all keys from 
@@ -267,15 +294,45 @@ impl<K, S, H> Distribution<H> for FrequencyDistribution<K, S>
   #[inline]
   #[stable]
   fn remove<Q: ?Sized>(&mut self, k: &Q) 
-    where Q: Hash<H> + Eq + BorrowFrom<K>
+    where Q: Hash + Eq + Borrow<K>
   {
-    match self.hashmap.remove(k) {
+    match self.hashmap.remove(k.borrow()) {
       Some(count) => self.sum_counts -= count,
       None        => ()
     }
   }
 }
 
+impl<K, S, H> IntoIterator for FrequencyDistribution<K, S>
+  where K: Eq + Hash,
+        S: HashState<Hasher=H>,
+        H: Hasher
+{
+  type Item = (K, usize);
+  type IntoIter = IntoIter<K, usize>;
+
+  /// Consumes the distribution, and creates an iterator over the 
+  /// (Key, Quantity: usize) pairs.
+  #[inline]
+  #[stable]
+  fn into_iter(self) -> IntoIter<K, usize> {
+    self.hashmap.into_iter()
+  }
+}
+
+impl<'a, K, S, H, Q: ?Sized> Index<&'a Q> for FrequencyDistribution<K, S>
+  where K: Eq + Hash + Borrow<Q>,
+        S: HashState<Hasher=H>,
+        H: Hasher,
+        Q: Eq + Hash
+{
+  type Output = usize;
+
+
+  fn index<'b>(&'b self, index: &Q) -> &'b usize {
+    self.hashmap.get(index).unwrap_or(ZERO)
+  }
+}
 
 /// Iterator over entries with non-zero quantities.
 #[stable]
@@ -310,15 +367,15 @@ fn smoke_test_frequency_distribution_insert() {
 
   dist.insert(words[0]);
   
-  assert_eq!(*dist.get(&words[0]).unwrap(), 1);
+  assert_eq!(dist.get(&words[0]), 1);
 
   dist.insert(words[1]);
 
-  assert_eq!(*dist.get(&words[1]).unwrap(), 1);
+  assert_eq!(dist.get(&words[1]), 1);
 
-  for _ in range(0, 7us) { dist.insert(words[0]); }
+  for _ in (0..7us) { dist.insert(words[0]); }
 
-  assert_eq!(*dist.get(&words[0]).unwrap(), 8);
+  assert_eq!(dist.get(&words[0]), 8);
 }
 
 #[test]
@@ -326,9 +383,9 @@ fn smoke_test_frequency_distribution_iter() {
   let words = vec!(("a", 50us), ("b", 100us), ("c", 75us), ("d", 0us));
   let dist: FrequencyDistribution<&str> = FromIterator::from_iter(words.into_iter());
 
-  assert_eq!(*dist.get(&"a").unwrap(), 50);
-  assert_eq!(*dist.get(&"b").unwrap(), 100);
-  assert_eq!(*dist.get(&"c").unwrap(), 75);
+  assert_eq!(dist.get(&"a"), 50);
+  assert_eq!(dist.get(&"b"), 100);
+  assert_eq!(dist.get(&"c"), 75);
 
   let mut iter = dist.iter_non_zero();
 
@@ -345,11 +402,11 @@ fn smoke_test_frequency_distribution_remove() {
   let words = vec!(("a", 50us), ("b", 100us), ("c", 25us));
   let mut dist: FrequencyDistribution<&str> = FromIterator::from_iter(words.into_iter());
 
-  assert!(dist.get(&"a").is_some());
+  assert_eq!(dist.get(&"a"), 50);
 
   dist.remove(&"a");
 
-  assert!(dist.get(&"a").is_none());
+  assert_eq!(dist.get(&"a"), 0);
   assert_eq!(dist.sum_counts(), 125);
 }
 
