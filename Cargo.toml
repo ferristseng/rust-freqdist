@@ -9,6 +9,3 @@ repository = "https://github.com/ferristseng/rust-freqdist"
 [lib]
 name = "freqdist"
 path = "src/lib.rs"
-
-[dependencies.xxhash]
-version = "0.0.8"

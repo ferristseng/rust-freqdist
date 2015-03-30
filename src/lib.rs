@@ -1,22 +1,19 @@
 #![feature(std_misc, test)]
 
 #[cfg(test)] extern crate test;
-extern crate xxhash;
 
 use std::ops::Index;
 use std::default::Default;
-use std::hash::{Hasher, Hash};
+use std::hash::{Hasher, Hash, SipHasher};
 use std::iter::{FromIterator, IntoIterator};
 use std::borrow::Borrow;
 use std::collections::HashMap;
 use std::collections::hash_map::{Keys, IntoIter, Iter};
 use std::collections::hash_state::{HashState, DefaultState};
 
-use xxhash::XXHasher;
-
 /// Distribution doesn't require a cryptographically secure hash, and by 
 /// default will not use one.
-pub trait Distribution<H = XXHasher> {
+pub trait Distribution<H = SipHasher> {
   type Key;
   type Quantity;
 
@@ -48,7 +45,7 @@ pub trait Distribution<H = XXHasher> {
 ///
 /// assert_eq!(fdist.get(&"hello"), 2);
 /// ```
-pub struct FrequencyDistribution<K, S = DefaultState<XXHasher>> {
+pub struct FrequencyDistribution<K, S = DefaultState<SipHasher>> {
   hashmap: HashMap<K, usize, S>,
   sum_counts: usize
 }
@@ -142,9 +139,9 @@ impl<K, S, H> FrequencyDistribution<K, S>
   ///   FromIterator::from_iter(existing.into_iter());
   /// let mut iter = fdist.iter_non_zero();
   ///
-  /// assert_eq!(*iter.next().unwrap(), "pants");
   /// assert_eq!(*iter.next().unwrap(), "shirt");
   /// assert_eq!(*iter.next().unwrap(), "shoes");
+  /// assert_eq!(*iter.next().unwrap(), "pants");
   /// assert!(iter.next().is_none());
   /// ```
   #[inline]
