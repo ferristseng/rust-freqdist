@@ -13,17 +13,16 @@ use std::collections::hash_state::{HashState, DefaultState};
 
 /// Distribution doesn't require a cryptographically secure hash, and by 
 /// default will not use one.
-pub trait Distribution<H = SipHasher> {
-  type Key;
+pub trait Distribution<K, H = SipHasher> {
   type Quantity;
 
   fn len(&self) -> usize;
   fn get<Q: ?Sized>(&self, k: &Q) -> Self::Quantity
-    where Q: Hash + Eq + Borrow<Self::Key>; 
+    where K: Borrow<Q>, Q: Hash + Eq; 
   fn clear(&mut self);
-  fn insert(&mut self, k: Self::Key);
+  fn insert(&mut self, k: K);
   fn remove<Q: ?Sized>(&mut self, k: &Q) 
-    where Q: Hash + Eq + Borrow<Self::Key>;
+    where K: Borrow<Q>, Q: Hash + Eq;
 }
 
 /// Implementation of a Frequency Distribution in Rust. Keeps track of how many 
@@ -246,12 +245,11 @@ impl<K, S, H> Extend<(K, usize)> for FrequencyDistribution<K, S>
   }
 }
 
-impl<K, S, H> Distribution<H> for FrequencyDistribution<K, S> 
+impl<K, S, H> Distribution<K, H> for FrequencyDistribution<K, S> 
   where K: Eq + Hash, 
         S: HashState<Hasher=H>, 
         H: Hasher 
 {
-  type Key = K;
   type Quantity = usize;
 
   /// Returns the number of entries in the distribution
@@ -265,9 +263,9 @@ impl<K, S, H> Distribution<H> for FrequencyDistribution<K, S>
   #[inline]
   #[stable]
   fn get<Q: ?Sized>(&self, k: &Q) -> usize 
-    where Q: Hash + Eq + Borrow<K>
+    where K: Borrow<Q>, Q: Hash + Eq
   {
-    self[k.borrow()]
+    self[k]
   }
 
   /// Clears the counts of all keys and clears all keys from 
@@ -291,9 +289,9 @@ impl<K, S, H> Distribution<H> for FrequencyDistribution<K, S>
   #[inline]
   #[stable]
   fn remove<Q: ?Sized>(&mut self, k: &Q) 
-    where Q: Hash + Eq + Borrow<K>
+    where K: Borrow<Q>, Q: Hash + Eq
   {
-    match self.hashmap.remove(k.borrow()) {
+    match self.hashmap.remove(k) {
       Some(count) => self.sum_counts -= count,
       None        => ()
     }

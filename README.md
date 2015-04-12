@@ -6,18 +6,14 @@ Provides a Frequency Distribution data structure, which can keep track of the nu
 
 # Example
 
-```
+```rust
 use freqdist::{Distribution, FrequencyDistribution};
 
 let mut fdist = FrequencyDistribution::new();
 
 fdist.insert("hello");
 fdist.insert("hello");
-fdist.insert("goodbyte");
+fdist.insert("goodbye");
 
-assert_eq!(*fdist.get("hello").unwrap(), 2);
+assert_eq!(fdist.get(&"hello"), 2);
 ```
-
-# TODO
-
-  * Implement more traits (Index, etc...)
