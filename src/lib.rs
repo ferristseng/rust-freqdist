@@ -1,4 +1,5 @@
-#![feature(std_misc, test)]
+#![feature(std_misc)]
+#![cfg_attr(test, feature(test))]
 
 #[cfg(test)] extern crate test;
 
