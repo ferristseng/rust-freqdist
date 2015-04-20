@@ -369,14 +369,14 @@ fn smoke_test_frequency_distribution_insert() {
 
   assert_eq!(dist.get(&words[1]), 1);
 
-  for _ in (0..7us) { dist.insert(words[0]); }
+  for _ in (0..7u32) { dist.insert(words[0]); }
 
   assert_eq!(dist.get(&words[0]), 8);
 }
 
 #[test]
 fn smoke_test_frequency_distribution_iter() {
-  let words = vec!(("a", 50us), ("b", 100us), ("c", 75us), ("d", 0us));
+  let words = vec!(("a", 50usize), ("b", 100usize), ("c", 75usize), ("d", 0usize));
   let dist: FrequencyDistribution<&str> = FromIterator::from_iter(words.into_iter());
 
   assert_eq!(dist.get(&"a"), 50);
@@ -395,7 +395,7 @@ fn smoke_test_frequency_distribution_iter() {
 
 #[test]
 fn smoke_test_frequency_distribution_remove() {
-  let words = vec!(("a", 50us), ("b", 100us), ("c", 25us));
+  let words = vec!(("a", 50usize), ("b", 100usize), ("c", 25usize));
   let mut dist: FrequencyDistribution<&str> = FromIterator::from_iter(words.into_iter());
 
   assert_eq!(dist.get(&"a"), 50);
@@ -408,7 +408,7 @@ fn smoke_test_frequency_distribution_remove() {
 
 #[test]
 fn smoke_test_frequency_sum_counts() {
-  let words = vec!(("a", 7us), ("b", 5us), ("c", 8us), ("d", 3us));
+  let words = vec!(("a", 7usize), ("b", 5usize), ("c", 8usize), ("d", 3usize));
   let mut dist: FrequencyDistribution<&str> = FromIterator::from_iter(words.into_iter());
 
   assert_eq!(dist.sum_counts(), 23);
