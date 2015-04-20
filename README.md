@@ -1,4 +1,4 @@
-# FreqDist
+# Frequency Distribution
 
 [![Build Status](https://travis-ci.org/ferristseng/rust-freqdist.svg)](https://travis-ci.org/ferristseng/rust-freqdist)
 [![](http://meritbadge.herokuapp.com/rust-freqdist)](https://crates.io/crates/rust-freqdist)
