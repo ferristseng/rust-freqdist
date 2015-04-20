@@ -108,14 +108,12 @@ impl<K, S, H> FrequencyDistribution<K, S>
 {
   /// Iterator over the keys.
   #[inline]
-  #[stable]
   pub fn keys(&self) -> Keys<K, usize> {
     self.hashmap.keys()
   }
 
   /// Iterator over the key, frequency pairs.
   #[inline]
-  #[stable]
   pub fn iter(&self) -> Iter<K, usize> {
     self.hashmap.iter()
   }
@@ -145,14 +143,12 @@ impl<K, S, H> FrequencyDistribution<K, S>
   /// assert!(iter.next().is_none());
   /// ```
   #[inline]
-  #[unstable]
   pub fn iter_non_zero(&self) -> NonZeroKeysIter<K> {
     NonZeroKeysIter { iter: self.iter() }
   }
 
   /// Sum of the total number of items counted thus far. 
   #[inline]
-  #[stable]
   pub fn sum_counts(&self) -> usize {
     self.sum_counts
   }
@@ -177,7 +173,6 @@ impl<K> Default for FrequencyDistribution<K>
 {
   /// Creates a default FrequencyDistribution with an XXHasher.
   #[inline]
-  #[stable]
   fn default() -> FrequencyDistribution<K> {
     FrequencyDistribution::new()
   }
@@ -255,14 +250,12 @@ impl<K, S, H> Distribution<K, H> for FrequencyDistribution<K, S>
 
   /// Returns the number of entries in the distribution
   #[inline]
-  #[stable]
   fn len(&self) -> usize {
     self.hashmap.len()
   }
 
   /// Gets the frequency in which the key occurs.
   #[inline]
-  #[stable]
   fn get<Q: ?Sized>(&self, k: &Q) -> usize 
     where K: Borrow<Q>, Q: Hash + Eq
   {
@@ -272,7 +265,6 @@ impl<K, S, H> Distribution<K, H> for FrequencyDistribution<K, S>
   /// Clears the counts of all keys and clears all keys from 
   /// the distribution.
   #[inline]
-  #[stable]
   fn clear(&mut self) {
     self.hashmap.clear()
   }
@@ -281,20 +273,18 @@ impl<K, S, H> Distribution<K, H> for FrequencyDistribution<K, S>
   /// already exists. Otherwise, inserts the key sizeo the hashmap, 
   /// and sets its frequency to 1.
   #[inline]
-  #[stable]
   fn insert(&mut self, k: K) {
     self.insert_or_incr_by(k, 1);
   }
 
   /// Removes a Key and its associated value from the Distrbution.
   #[inline]
-  #[stable]
   fn remove<Q: ?Sized>(&mut self, k: &Q) 
     where K: Borrow<Q>, Q: Hash + Eq
   {
     match self.hashmap.remove(k) {
       Some(count) => self.sum_counts -= count,
-      None        => ()
+      None => ()
     }
   }
 }
@@ -310,7 +300,6 @@ impl<K, S, H> IntoIterator for FrequencyDistribution<K, S>
   /// Consumes the distribution, and creates an iterator over the 
   /// (Key, Quantity: usize) pairs.
   #[inline]
-  #[stable]
   fn into_iter(self) -> IntoIter<K, usize> {
     self.hashmap.into_iter()
   }
@@ -331,7 +320,6 @@ impl<'a, K, S, H, Q: ?Sized> Index<&'a Q> for FrequencyDistribution<K, S>
 }
 
 /// Iterator over entries with non-zero quantities.
-#[stable]
 pub struct NonZeroKeysIter<'a, K: 'a> {
   iter: Iter<'a, K, usize> 
 }
@@ -344,8 +332,8 @@ impl<'a, K: 'a> Iterator for NonZeroKeysIter<'a, K> {
     loop {
       match self.iter.next() {
         Some((k, c)) if *c > 0 => return Some(k),
-        None                   => return None,
-        _                      => ()
+        None => return None,
+        _ => ()
       }
     }
   }
