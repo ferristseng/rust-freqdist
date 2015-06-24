@@ -18,7 +18,7 @@
 //! assert_eq!(fdist.get(&"hello"), 2);
 //! ```
 
-#![feature(std_misc, hashmap_hasher)]
+#![feature(hashmap_hasher)]
 #![warn(missing_docs)]
 #![cfg_attr(test, feature(test))]
 
