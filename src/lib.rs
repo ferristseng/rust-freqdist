@@ -25,7 +25,6 @@
 //! assert_eq!(fdist.get(&"hello"), 2);
 //! ```
 
-#![feature(hashmap_hasher)]
 #![warn(missing_docs)]
 #![cfg_attr(test, feature(test))]
 
@@ -33,48 +32,47 @@
 
 use std::ops::Index;
 use std::default::Default;
-use std::hash::{Hasher, Hash, SipHasher};
+use std::hash::{Hasher, Hash, BuildHasher, SipHasher};
 use std::iter::{FromIterator, IntoIterator};
 use std::borrow::Borrow;
 use std::collections::HashMap;
-use std::collections::hash_map::{Keys, IntoIter, Iter};
-use std::collections::hash_state::{HashState, DefaultState};
+use std::collections::hash_map::{Keys, IntoIter, Iter, RandomState};
 
 
 static ZERO: usize = 0;
 
 
-#[allow(missing_docs)] pub struct FrequencyDistribution<K, S = DefaultState<SipHasher>> {
+#[allow(missing_docs)] pub struct FrequencyDistribution<K, S = RandomState> {
   hashmap: HashMap<K, usize, S>,
   sum_counts: usize
 }
 
-impl<K, H = SipHasher, S = DefaultState<SipHasher>> FrequencyDistribution<K, S>
+impl<K, H = SipHasher, S = RandomState> FrequencyDistribution<K, S>
   where K : Eq + Hash,
         H : Hasher,
-        S : HashState<Hasher = H>
+        S : BuildHasher<Hasher = H>
 {
-  /// Creates a new FrequencyDistrbution with a hash state and size, where 
+  /// Creates a new FrequencyDistrbution with a hasher and size, where 
   /// the size is known or can be estimated.
-  #[inline(always)] pub fn with_capacity_and_hash_state(
+  #[inline(always)] pub fn with_capacity_and_hasher(
     size: usize, 
     state: S 
   ) -> FrequencyDistribution<K, S> {
     FrequencyDistribution {
-      hashmap: HashMap::with_capacity_and_hash_state(size, state),
+      hashmap: HashMap::with_capacity_and_hasher(size, state),
       sum_counts: 0    
     }
   }
 
-  /// Creates a new FrequencyDistribution with a hash state and default size.
-  #[inline(always)] pub fn with_hash_state(state: S) -> FrequencyDistribution<K, S> {
+  /// Creates a new FrequencyDistribution with a hasher and default size.
+  #[inline(always)] pub fn with_hasher(state: S) -> FrequencyDistribution<K, S> {
     FrequencyDistribution {
-      hashmap: HashMap::with_hash_state(state),
+      hashmap: HashMap::with_hasher(state),
       sum_counts: 0
     }
   }
 
-    /// Iterator over the keys.
+  /// Iterator over the keys.
   #[inline(always)] pub fn keys(&self) -> Keys<K, usize> {
     self.hashmap.keys()
   }
@@ -166,15 +164,15 @@ impl<K, H = SipHasher, S = DefaultState<SipHasher>> FrequencyDistribution<K, S>
   }
 }
 
-impl<K, H = SipHasher, S = DefaultState<SipHasher>> FrequencyDistribution<K, S> 
+impl<K, H = SipHasher, S = RandomState> FrequencyDistribution<K, S> 
   where K : Eq + Hash, 
         H : Hasher + Default, 
-        S : HashState<Hasher = H> + Default
+        S : BuildHasher<Hasher = H> + Default
 {
   /// Creates a new FrequencyDistribution where the size of the
   /// HashMap is unknown.
   #[inline(always)] pub fn new() -> FrequencyDistribution<K, S> {
-    FrequencyDistribution::with_hash_state(Default::default())
+    FrequencyDistribution::with_hasher(Default::default())
   }
   
   /// Creates a new FrequencyDistribution where the size of the HashMap
@@ -182,14 +180,14 @@ impl<K, H = SipHasher, S = DefaultState<SipHasher>> FrequencyDistribution<K, S>
   #[inline(always)] pub fn with_capacity(
     size: usize
   ) -> FrequencyDistribution<K, S> {
-    FrequencyDistribution::with_capacity_and_hash_state(size, Default::default())
+    FrequencyDistribution::with_capacity_and_hasher(size, Default::default())
   }
 }
 
-impl<K, H = SipHasher, S = DefaultState<SipHasher>> Default for FrequencyDistribution<K, S> 
+impl<K, H = SipHasher, S = RandomState> Default for FrequencyDistribution<K, S> 
   where K : Eq + Hash,
         H : Hasher + Default,
-        S : HashState<Hasher = H> + Default
+        S : BuildHasher<Hasher = H> + Default
 {
   /// Creates a default FrequencyDistribution.
   #[inline(always)] fn default() -> FrequencyDistribution<K, S> {
@@ -200,7 +198,7 @@ impl<K, H = SipHasher, S = DefaultState<SipHasher>> Default for FrequencyDistrib
 impl<K, H, S> FromIterator<(K, usize)> for FrequencyDistribution<K, S> 
   where K : Eq + Hash, 
         H : Hasher,
-        S : HashState<Hasher = H> + Default 
+        S : BuildHasher<Hasher = H> + Default 
 { 
   /// Iterates through an iterator, and creates a new FrequencyDistribution from 
   /// it. The iterator should be an iterator over keys and frequencies. If a 
@@ -231,11 +229,11 @@ impl<K, H, S> FromIterator<(K, usize)> for FrequencyDistribution<K, S>
   {
     let iterator = iter.into_iter();
     let mut fdist = if iterator.size_hint().1.is_some() {
-      FrequencyDistribution::with_capacity_and_hash_state(
+      FrequencyDistribution::with_capacity_and_hasher(
         iterator.size_hint().1.unwrap(),
         Default::default())
     } else {
-      FrequencyDistribution::with_capacity_and_hash_state(
+      FrequencyDistribution::with_capacity_and_hasher(
         iterator.size_hint().0, 
         Default::default())
     };
@@ -249,7 +247,7 @@ impl<K, H, S> FromIterator<(K, usize)> for FrequencyDistribution<K, S>
 impl<K, H, S> Extend<(K, usize)> for FrequencyDistribution<K, S> 
   where K : Eq + Hash, 
         H : Hasher, 
-        S : HashState<Hasher = H>
+        S : BuildHasher<Hasher = H>
 {
   /// Extends the hashmap by adding the keys or updating the frequencies of the keys.
   fn extend<T>(&mut self, iter: T) 
@@ -262,7 +260,7 @@ impl<K, H, S> Extend<(K, usize)> for FrequencyDistribution<K, S>
 impl<K, H, S> IntoIterator for FrequencyDistribution<K, S>
   where K : Eq + Hash,
         H : Hasher,
-        S : HashState<Hasher = H>
+        S : BuildHasher<Hasher = H>
 {
   type Item = (K, usize);
   type IntoIter = IntoIter<K, usize>;
@@ -277,7 +275,7 @@ impl<K, H, S> IntoIterator for FrequencyDistribution<K, S>
 impl<'a, K, H, S, Q : ?Sized> Index<&'a Q> for FrequencyDistribution<K, S>
   where K : Eq + Hash + Borrow<Q>,
         H : Hasher,
-        S : HashState<Hasher = H>,
+        S : BuildHasher<Hasher = H>,
         Q : Eq + Hash
 {
   type Output = usize;
