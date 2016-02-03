@@ -1,8 +1,8 @@
 [package]
 name = "rust-freqdist"
 description = "An implementation of a Frequency Distribution in Rust"
-version = "0.1.3"
-license = "MIT"
+version = "0.1.4"
+license = "MIT OR Apache-2.0"
 authors = ["Ferris Tseng <ferristseng@fastmail.fm>"]
 repository = "https://github.com/ferristseng/rust-freqdist"
 
