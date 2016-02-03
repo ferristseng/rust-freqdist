@@ -104,9 +104,9 @@ impl<K, H = SipHasher, S = RandomState> FrequencyDistribution<K, S>
   ///   FromIterator::from_iter(existing.into_iter());
   /// let mut iter = fdist.iter_non_zero();
   ///
-  /// assert_eq!(*iter.next().unwrap(), "pants");
-  /// assert_eq!(*iter.next().unwrap(), "shoes");
-  /// assert_eq!(*iter.next().unwrap(), "shirt");
+  /// assert!(iter.next().is_some());
+  /// assert!(iter.next().is_some());
+  /// assert!(iter.next().is_some());
   /// assert!(iter.next().is_none());
   /// ```
   #[inline(always)]
