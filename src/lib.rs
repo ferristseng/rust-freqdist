@@ -101,9 +101,9 @@ impl<K, H = SipHasher, S = RandomState> FrequencyDistribution<K, S>
   ///   FromIterator::from_iter(existing.into_iter());
   /// let mut iter = fdist.iter_non_zero();
   ///
-  /// assert_eq!(*iter.next().unwrap(), "shirt");
-  /// assert_eq!(*iter.next().unwrap(), "shoes");
   /// assert_eq!(*iter.next().unwrap(), "pants");
+  /// assert_eq!(*iter.next().unwrap(), "shoes");
+  /// assert_eq!(*iter.next().unwrap(), "shirt");
   /// assert!(iter.next().is_none());
   /// ```
   #[inline(always)] pub fn iter_non_zero(&self) -> NonZeroKeysIter<K> {
@@ -317,7 +317,7 @@ fn smoke_test_frequency_distribution_insert() {
 
   assert_eq!(dist.get(&words[1]), 1);
 
-  for _ in (0..7u32) { dist.insert(words[0]); }
+  for _ in 0..7u32 { dist.insert(words[0]); }
 
   assert_eq!(dist.get(&words[0]), 8);
 }
