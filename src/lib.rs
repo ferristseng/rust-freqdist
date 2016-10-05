@@ -33,7 +33,7 @@ extern crate test;
 
 use std::ops::Index;
 use std::default::Default;
-use std::hash::{Hasher, Hash, BuildHasher, SipHasher};
+use std::hash::{Hasher, Hash, BuildHasher};
 use std::iter::{FromIterator, IntoIterator};
 use std::borrow::Borrow;
 use std::collections::HashMap;
@@ -49,7 +49,7 @@ pub struct FrequencyDistribution<K, S = RandomState> {
   sum_counts: usize,
 }
 
-impl<K, H = SipHasher, S = RandomState> FrequencyDistribution<K, S>
+impl<K, H, S> FrequencyDistribution<K, S>
   where K: Eq + Hash,
         H: Hasher,
         S: BuildHasher<Hasher = H>
@@ -177,7 +177,7 @@ impl<K, H = SipHasher, S = RandomState> FrequencyDistribution<K, S>
   }
 }
 
-impl<K, H = SipHasher, S = RandomState> FrequencyDistribution<K, S>
+impl<K, H, S> FrequencyDistribution<K, S>
   where K: Eq + Hash,
         H: Hasher + Default,
         S: BuildHasher<Hasher = H> + Default
@@ -197,7 +197,7 @@ impl<K, H = SipHasher, S = RandomState> FrequencyDistribution<K, S>
   }
 }
 
-impl<K, H = SipHasher, S = RandomState> Default for FrequencyDistribution<K, S>
+impl<K, H, S> Default for FrequencyDistribution<K, S>
   where K: Eq + Hash,
         H: Hasher + Default,
         S: BuildHasher<Hasher = H> + Default
